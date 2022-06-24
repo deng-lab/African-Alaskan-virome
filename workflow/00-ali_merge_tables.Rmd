@@ -1,0 +1,114 @@
+---
+title: "00-ali_merge_tables"
+date: "Compiled at `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'UTC')` UTC"
+output: github_document
+params:
+  name: "00-ali_merge_tables" # change if you rename file
+---
+
+```{r here, message=FALSE}
+here::i_am(paste0(params$name, ".Rmd"), uuid = "3954b734-6ef5-48a7-bb76-bb52f71136b7")
+```
+
+The purpose of this document is ...
+
+```{r packages, message=FALSE, warning=FALSE, include=FALSE}
+library("conflicted")
+library(here)
+library(tidyverse)
+library(data.table)
+library(speedyseq)
+library(readxl)
+
+source("../R/utils.R")
+```
+
+```{r directories}
+# create or *empty* the target directory, used to write this file's data: 
+projthis::proj_create_dir_target(params$name, clean = TRUE)
+
+# function to get path to target directory: path_target("sample.csv")
+path_target <- projthis::proj_path_target(params$name)
+
+# function to get path to previous data: path_source("00-import", "sample.csv")
+path_source <- projthis::proj_path_source(params$name)
+```
+
+## Tasks
+
+The first task is ...
+
+```{r load data}
+dpath <- normalizePath("../data")
+vpath <- here(dpath, "hpc/p0094_report/vir")
+fp_checkv <- here(vpath, "quality_summary.tsv")
+fp_virsorter2 <- here(vpath, "final-viral-score.tsv")
+fp_vcontact2 <- here(vpath, "genome_by_genome_overview.csv")
+fp_vir_taxa <- here(vpath, "taxonomy.tsv")
+fp_vir_counts <- here(vpath, "abundance_contigs_count.tsv")
+fp_vir_covfrac <- here(vpath, "abundance_contigs_covered_fraction.tsv.gz")
+fp_lifestyle <- here(vpath, "lifestyle.tsv")
+fp_virhost <- here(vpath, "virhost.tsv")
+
+fp_metadata <- here(dpath, "p0094_metadata.xlsx")
+```
+
+
+```{r read data}
+df_checkv <- read_CheckV(fp_checkv)
+df_virsorter2 <- read_VirSorter2(fp_virsorter2)
+vc2 <- read_vConTACT2(fp_vcontact2)
+df_vcontact2 <- vc2$vc_tbl
+anno_vcontact2_cluster <- vc2$vc_annotated
+df_vtaxa <- read_vtaxonomy(fp_vir_taxa)
+df_lifestyle <- read_lifestyle(fp_lifestyle)
+df_virhost <- read_virhost(fp_virhost)
+
+smeta <- read_excel(fp_metadata, sheet = "metadata")
+```
+
+
+```{r}
+min_vg_cov <- 0.2
+# ------- combine viral annotation ------------
+# Annotation with all CheckV contigs
+anno_all <- df_checkv %>% 
+  left_join(df_vtaxa, by = "Contig") %>%
+  left_join(df_virsorter2, by = "Contig") %>% 
+  left_join(df_vcontact2, by = "virsorter2_contig_id") %>% 
+  left_join(df_virhost, by = "Contig") %>% 
+  left_join(df_lifestyle, by = "Contig") %>% 
+  mutate(checkv_contig_length = as.integer(checkv_contig_length)) %>% 
+  mutate(virsorter2_category = as.integer(virsorter2_category)) %>% 
+  arrange(desc(checkv_contig_length))
+
+# Annotation with only VirSorter2 identified viral contigs
+anno_viral <- anno_all %>% 
+  dplyr::filter(virsorter2_category %in% c(1,2,3,4,5,6) | checkv_quality %in% c("Complete", "High-quality", "Medium-quality", "Low-quality"))
+
+# --------- Viral abundance table ----------
+df_counts <- read_abundance(fp_vir_counts, anno_viral)
+df_covfrac <- read_abundance(fp_vir_covfrac, anno_viral)
+df_abundance <- create_viral_abundance(df_counts, df_covfrac, min_vg_cov)
+
+smeta_vir <- smeta %>% 
+  dplyr::filter(id_virome %in% colnames(df_abundance))
+
+df_abundance <- df_abundance %>% 
+  setnames(smeta_vir$id_virome, smeta_vir$Sample_NameLIMS) %>% 
+  rownames_to_column("Contig")
+
+df_report <- anno_viral %>% 
+  right_join(df_abundance, by = "Contig")
+```
+
+
+## Files written
+
+These files have been written to the target directory, ```r paste0("data/", params$name)```:
+
+```{r list-files-target}
+df_report %>% fwrite(file = path_target("p0094_merged_results.tsv"), sep = "\t")
+WriteXLS::WriteXLS(df_report, ExcelFileName = path_target("p0094_merged_results.xlsx"))
+projthis::proj_dir_info(path_target())
+```
