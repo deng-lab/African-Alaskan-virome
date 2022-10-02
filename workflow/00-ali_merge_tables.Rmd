@@ -102,6 +102,40 @@ df_report <- anno_viral %>%
   right_join(df_abundance, by = "Contig")
 ```
 
+### Select sub-samples
+
+Ali asked for subsamples of the virome results. 
+
+```{r}
+samples_selected <- c("22L005050S52", "22L005051S53", "22L005052S54", "22L005053S55", "22L005054S56", "22L005055S57", "22L005056S58", "22L005057S59", "22L005058S60", "22L005059S61", "22L005060S62", "22L005061S63", "22L005062S64", "22L005063S65", "22L005072S74", "22L005073S75", "22L005074S76", "22L005075S77", "22L005076S78", "22L005077S79", "22L005078S80", "22L005080S82", "22L005081S83", "22L005082S84", "22L005083S85", "22L005084S86", "22L005085S87", "22L005086S88")
+
+
+# select columns in samples_selected of df_counts and df_covfrac
+df_counts_sel <- df_counts %>% 
+  column_to_rownames("Contig") %>% 
+  select(samples_selected) %>% 
+  rownames_to_column("Contig")
+
+df_covfrac_sel <- df_covfrac %>% 
+  column_to_rownames("Contig") %>% 
+  select(samples_selected) %>% 
+  rownames_to_column("Contig")
+
+# Remove viral contigs that not in these sub-samples
+df_abundance_sel <- create_viral_abundance(df_counts_sel, df_covfrac_sel, min_vg_cov) %>% 
+  dplyr::filter(rowSums(. > 0) > 0)
+
+smeta_vir_sel <- smeta %>% 
+  dplyr::filter(id_virome %in% colnames(df_abundance_sel))
+
+df_abundance_sel <- df_abundance_sel %>% 
+  setnames(smeta_vir_sel$id_virome, smeta_vir_sel$Sample_NameLIMS) %>% 
+  rownames_to_column("Contig")
+
+df_report_sel <- anno_viral %>% 
+  right_join(df_abundance_sel, by = "Contig")
+```
+
 
 ## Files written
 
@@ -110,5 +144,6 @@ These files have been written to the target directory, ```r paste0("data/", para
 ```{r list-files-target}
 df_report %>% fwrite(file = path_target("p0094_merged_results.tsv"), sep = "\t")
 WriteXLS::WriteXLS(df_report, ExcelFileName = path_target("p0094_merged_results.xlsx"))
+WriteXLS::WriteXLS(df_report_sel, ExcelFileName = path_target("p0094_merged_results_subsamples.xlsx"))
 projthis::proj_dir_info(path_target())
 ```
