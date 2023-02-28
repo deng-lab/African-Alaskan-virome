@@ -13,14 +13,14 @@ here::i_am(paste0(params$name, ".Rmd"), uuid = "3954b734-6ef5-48a7-bb76-bb52f711
 The purpose of this document is ...
 
 ```{r packages, message=FALSE, warning=FALSE, include=FALSE}
-library("conflicted")
+library(conflicted)
 library(here)
 library(tidyverse)
 library(data.table)
 library(speedyseq)
 library(readxl)
 
-source("../R/utils.R")
+devtools::load_all()
 ```
 
 ```{r directories}

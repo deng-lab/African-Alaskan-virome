@@ -1,0 +1,81 @@
+---
+title: "01-import"
+title-block-banner: true
+author:
+  - name: xxx
+    orcid: xxx
+date: 2022-11-06
+toc: true
+toc-depth: 4
+number-sections: true
+code-fold: true
+code-line-numbers: true
+code-tools: true
+format: 
+  html:
+    embed-resources: true
+    smooth-scroll: true
+    page-layout: article
+reference-location: margin
+citation-location: margin
+params:
+  name: "01-import"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+The purpose of this document is ...
+
+```{r setup}
+#| message: false
+#| include: false
+here::i_am(paste0(params$name, ".qmd"), uuid = "271e7732-e77e-4c9e-8f8b-61eba5283087")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+dir.create(path_raw, recursive = T)
+path_data <- here::here(path_raw, params$name)
+dir.create(path_data, recursive = T)
+```
+
+```{r packages}
+library(here)
+library(conflicted)
+library(phyloseq)
+library(tidyverse)
+```
+
+## Tasks
+
+The first task is ...
+
+```{r 16S}
+load(here(path_data, "16s", "physeq.RData"))
+physeq_16s <- physeq
+# Extract abundance data
+df_abund <- as.data.frame(otu_table(physeq_16s)) %>% 
+  rownames_to_column("feature_id")
+# Extract sample data
+df_sample <- as.data.frame(sample_data(physeq_16s))
+# Extract taxonomic data
+df_tax <- as.data.frame(tax_table(physeq_16s)) %>% 
+  rownames_to_column("feature_id")
+
+# Extract phylogenetic data
+# tree <- phy_tree(physeq_16s)
+df_tax_abund <- inner_join(df_tax, df_abund, by = "feature_id") %>%
+  # sort by column A5b_A5pI in descending order
+  arrange(desc(A5b_A5pI))
+openxlsx::write.xlsx(df_tax_abund, file = path_target("amp16s.xlsx"))
+```
+
+
+
+## Files written
+
+These files have been written to the target directory, ```r paste0("data/", params$name)```:
+
+```{r list-files-target}
+projthis::proj_dir_info(path_target())
+```

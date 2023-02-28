@@ -4,5 +4,6 @@
 .httr-oauth
 .DS_Store
 *.docx
-workflow/data
+workflow*/*
+!workflow*/*md
 hpc

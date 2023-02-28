@@ -1,0 +1,108 @@
+---
+title: "12-virmerge"
+title-block-banner: true
+author:
+  - name: Jinlong Ru
+    orcid: 0000-0002-6757-6018
+toc: true
+code-fold: true
+format: 
+  html:
+    embed-resources: true
+    smooth-scroll: true
+bibliography: refs.bib
+params:
+  name: "12-virmerge"
+---
+
+Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.
+
+
+```{r setup}
+#| message: false
+#| include: false
+here::i_am(paste0(params$name, ".qmd"), uuid = "dde7713c-6130-4ad7-8454-96d7e77ea2fd")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_data <- path_source("00-raw", params$name)
+dir.create(path_data, recursive = T)
+```
+
+```{r packages}
+#| warning: false
+#| message: false
+library(conflicted)
+library(here)
+library(tidyverse)
+library(miaViz)
+
+conflict_prefer("setdiff", "dplyr")
+```
+
+
+## Tasks
+
+The purpose of this part is to import TSE with all contigs, and then,
+
+1. Filter viral contigs
+2. Create a new TSE with only viral contigs
+3. Adjust contig abundance using covfrac information
+4. Combine contig annotation with adjusted abundance information and save to excel file.
+
+```{r import}
+fin_meta <- path_source("00-raw", "p0094-metadata.xlsx")
+fin_tseall <- here(path_data, "viroprofiler_output_all_contigs.rds")
+
+tseall <- readRDS(fin_tseall)
+# colData(tseall) <- colData(tseall) %>% 
+#   data.frame() %>% 
+#   dplyr::left_join(df_meta, by = "sample_name") %>% 
+#   column_to_rownames("sample_name") %>% 
+#   DataFrame()
+
+# filter Viral contigs
+vir_mmseqs <- !is.na(rowData(tseall)$Domain)
+vir_checkv <- rowData(tseall)$checkv_quality %in% c("Complete", "High-quality", "Medium-quality")
+vir_virsorter2 <- rowData(tseall)$virsorter2_max_score_group %in% c("dsDNAphage", "NCLDV", "RNA", "ssDNA", "lavidaviridae")
+vir_dvf <- !is.na(rowData(tseall)$dvf_score)
+vir_vibrant <- rowData(tseall)$vibrant_quality %in% c("complete circular", "high quality draft", "medium quality draft")
+vir_all <- vir_checkv | vir_virsorter2 | vir_vibrant | vir_dvf
+
+tse <- tseall[vir_all,]
+```
+
+Adjust counts by covfrac.
+
+```{r}
+create_viral_abundance <- function(df_abundance, df_covfrac, covfrac_threshold=0.5) {
+  df_covfrac[df_covfrac<covfrac_threshold] <- 0
+  df_covfrac[df_covfrac>=covfrac_threshold] <- 1
+  df_abundance_filtered <- df_abundance*df_covfrac
+  return(df_abundance_filtered)
+}
+
+tbl_counts_adjusted_by_covfrac <- create_viral_abundance(assay(tse, "counts"), assay(tse, "covfrac"), 0.5) %>% 
+  rownames_to_column("feature_id")
+
+tbl_report <- rowData(tse) %>% 
+  data.frame() %>% 
+  rownames_to_column("feature_id") %>% 
+  dplyr::left_join(tbl_counts_adjusted_by_covfrac, by = "feature_id")
+```
+
+
+Save to excel file
+
+```{r}
+openxlsx::write.xlsx(tbl_report, file = path_target("p0094_virmerge_viroprofiler.xlsx"))
+# openxlsx::write.xlsx(tbl_meta, file = path_target("p0094_virmerge_metadata.xlsx"))
+```
+
+## Files written
+
+These files have been written to the target directory, ```r paste0("data/", params$name)```:
+
+```{r list-files-target}
+projthis::proj_dir_info(path_target())
+```
