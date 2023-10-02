@@ -1,11 +1,10 @@
-Package: p0094
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Package: afalaskan
+Title: African-Alaskan virome
+Version: 0.0.1
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("Jinlong", "Ru", , "jinlong.ru@helmholtz-munich.de", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-6757-6018"))
+Description: Code and data for the African-Alaskan virome project.
 License: GPL (>= 3)
 Encoding: UTF-8
-URL: https://github.com/rujinlong/p0094
-BugReports: https://github.com/rujinlong/p0094/issues
+URL: https://github.com/deng-lab/African-Alaskan-virome
